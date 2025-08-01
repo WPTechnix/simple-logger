@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WPTechnix\SimpleLogger\Formatter;
 
+use JsonSerializable;
 use WPTechnix\SimpleLogger\LogEntry;
 
 /**
@@ -51,5 +52,18 @@ class DefaultFormatter extends AbstractFormatter
         $updatedContext = $this->normalizeData($contextToUse);
 
         return $entry->withMessageAndContext($message, $updatedContext);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * OVERRIDE: Stringifies a JsonSerializable object by converting it to a JSON string,
+     * providing the most informative representation for direct inclusion in a log message.
+     */
+    protected function stringifyJsonSerializable(JsonSerializable $data): string
+    {
+        $normalizedData = $this->normalizeJsonSerializable($data);
+
+        return $this->safeJsonEncode($normalizedData);
     }
 }

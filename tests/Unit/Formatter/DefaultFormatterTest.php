@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace WPTechnix\SimpleLogger\Tests\Unit\Formatter;
 
+use DateTimeImmutable;
+use JsonSerializable;
+use LogicException;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Stringable;
+use Throwable;
 use WPTechnix\SimpleLogger\Formatter\DefaultFormatter;
 use WPTechnix\SimpleLogger\LogEntry;
 use Psr\Log\LogLevel as PsrLogLevel;
-use LogicException;
-use RuntimeException;
-use Throwable;
-use Stringable;
-use DateTimeImmutable;
-use JsonSerializable;
 
 /**
  * @covers \WPTechnix\SimpleLogger\Formatter\AbstractFormatter
@@ -23,6 +23,11 @@ use JsonSerializable;
  */
 class DefaultFormatterTest extends TestCase
 {
+    /**
+     * Default Formatter.
+     *
+     * @var DefaultFormatter
+     */
     private DefaultFormatter $formatter;
 
     public static function dataTypeProvider(): array
@@ -30,7 +35,7 @@ class DefaultFormatterTest extends TestCase
         $exception = new LogicException('Test Error');
 
         return [
-            // Test Name           => [value,                expectedString,                    expectedNormalized]
+            // Test Name      => [value,                expectedString,                    expectedNormalized]
             'null'       => [null, 'null', null],
             'boolean'    => [true, 'true', true],
             'integer'    => [123, '123', 123],
@@ -38,9 +43,9 @@ class DefaultFormatterTest extends TestCase
             'array'      => [[1], '[array:1]', [1]],
             'object'     => [(object)['a' => 1], '[object:stdClass]', ['a' => 1]],
             'DateTime'   => [
-                new DateTimeImmutable('2025-01-01T00:00:00Z'),
-                '2025-01-01T00:00:00+00:00',
-                '2025-01-01T00:00:00+00:00'
+                new DateTimeImmutable('2025-01-01T12:00:00Z'),
+                '2025-01-01T12:00:00+00:00',
+                '2025-01-01T12:00:00+00:00'
             ],
             'Stringable' => [
                 new class implements Stringable {
@@ -54,7 +59,7 @@ class DefaultFormatterTest extends TestCase
             ],
             'Closure'    => [fn() => 'test', '[closure]', '[closure]'],
             'Resource'   => [fopen('php://memory', 'r'), '[resource:stream]', '[resource:stream]'],
-            'Throwable'  => [$exception, 'LogicException: Test Error', ['class' => LogicException::class]],
+            'Throwable'  => [$exception, 'LogicException: Test Error in', ['class' => LogicException::class]],
         ];
     }
 
@@ -86,41 +91,71 @@ class DefaultFormatterTest extends TestCase
         self::assertSame($originalContext, $formatted->getContext());
     }
 
+    // ===================================================================
+    // == JsonSerializable Override Tests
+    // ===================================================================
+
     /** @test */
-    public function testFormatDoesNothingWhenNoPlaceholdersExist(): void
+    public function testJsonSerializableInContextIsNormalizedToArray(): void
     {
-        $originalMessage = 'A simple log message.';
-        $originalContext = ['user_id' => 5];
-        $entry           = new LogEntry(PsrLogLevel::INFO, $originalMessage, $originalContext);
-        $formatted       = $this->formatter->format($entry);
-        self::assertSame($originalMessage, $formatted->getMessage());
-        self::assertSame($originalContext, $formatted->getContext());
+        // This test specifically covers the override of normalizeJsonSerializable.
+        $userObject     = new class implements JsonSerializable {
+            public function jsonSerialize(): array
+            {
+                return ['id' => 123, 'name' => 'test'];
+            }
+        };
+        $entry          = new LogEntry(PsrLogLevel::INFO, 'A plain message', ['user' => $userObject]);
+        $formattedEntry = $this->formatter->format($entry);
+        $expectedArray  = ['id' => 123, 'name' => 'test'];
+        self::assertSame($expectedArray, $formattedEntry->getContext()['user']);
     }
 
+    /** @test */
+    public function testJsonSerializableInMessageIsStringifiedToJson(): void
+    {
+        // This test specifically covers the override of stringifyJsonSerializable.
+        $userObject     = new class implements JsonSerializable {
+            public function jsonSerialize(): array
+            {
+                return ['id' => 123, 'name' => 'test'];
+            }
+        };
+        $entry          = new LogEntry(PsrLogLevel::INFO, 'User data: {user}', ['user' => $userObject]);
+        $formattedEntry = $this->formatter->format($entry);
+        $expectedJson   = '{"id":123,"name":"test"}';
+        self::assertSame('User data: ' . $expectedJson, $formattedEntry->getMessage());
+        self::assertArrayNotHasKey('user', $formattedEntry->getContext());
+    }
+
+
     // ===================================================================
-    // == Data Type Handling (Comprehensive Provider)
+    // == General Data Type Handling (via AbstractFormatter)
     // ===================================================================
 
     /**
      * @test
      * @dataProvider dataTypeProvider
      */
-    public function testFormatHandlesAllDataTypes(mixed $value, string $expectedString, mixed $expectedNormalized): void
-    {
-        // Test stringification for interpolation
-        $entry1     = new LogEntry(PsrLogLevel::INFO, '{data}', ['data' => $value]);
-        $formatted1 = $this->formatter->format($entry1);
-        self::assertStringContainsString($expectedString, $formatted1->getMessage());
+    public function testFormatHandlesAllOtherDataTypes(
+        mixed $value,
+        string $expectedString,
+        mixed $expectedNormalized
+    ): void {
+        // Test stringification when value is used in the message
+        $entryForString  = new LogEntry(PsrLogLevel::INFO, 'Value is {data}', ['data' => $value]);
+        $formattedString = $this->formatter->format($entryForString);
+        self::assertStringContainsString($expectedString, $formattedString->getMessage());
+        self::assertArrayNotHasKey('data', $formattedString->getContext());
 
-        // Test normalization for context
-        $entry2     = new LogEntry(PsrLogLevel::INFO, 'msg', ['data' => $value]);
-        $formatted2 = $this->formatter->format($entry2);
+        // Test normalization when value is left in the context
+        $entryForContext  = new LogEntry(PsrLogLevel::INFO, 'A plain message', ['data' => $value]);
+        $formattedContext = $this->formatter->format($entryForContext);
         if ($value instanceof Throwable) {
-            self::assertSame($expectedNormalized['class'], $formatted2->getContext()['data']['class']);
+            self::assertSame($expectedNormalized['class'], $formattedContext->getContext()['data']['class']);
         } else {
-            self::assertEquals($expectedNormalized, $formatted2->getContext()['data']);
+            self::assertEquals($expectedNormalized, $formattedContext->getContext()['data']);
         }
-
         if (is_resource($value)) {
             fclose($value);
         }
@@ -141,7 +176,7 @@ class DefaultFormatterTest extends TestCase
     /** @test */
     public function testSetIncludeStackTraceInContext(): void
     {
-        $this->formatter->setIncludeStackTraceInContext(false); // Default is true, so we test the change
+        $this->formatter->setIncludeStackTraceInContext(false); // Default is true
         $entry = new LogEntry(PsrLogLevel::ERROR, 'e', ['exception' => new RuntimeException('Test')]);
         self::assertArrayNotHasKey('trace', $this->formatter->format($entry)->getContext()['exception']);
     }
@@ -172,7 +207,7 @@ class DefaultFormatterTest extends TestCase
     {
         $this->formatter->setMaxRecursionDepth(1);
         $recursiveData = ['level1' => ['level2' => 'hidden']];
-        $entry         = new LogEntry(PsrLogLevel::DEBUG, 'data', $recursiveData);
+        $entry         = new LogEntry(PsrLogLevel::DEBUG, 'A plain message', $recursiveData);
         self::assertSame(
             '[...max depth reached...]',
             $this->formatter->format($entry)->getContext()['level1']['level2']
@@ -188,39 +223,16 @@ class DefaultFormatterTest extends TestCase
     }
 
     /** @test */
-    public function testSetSkipJsonSerializables(): void
-    {
-        $jsonSerializable = new class implements JsonSerializable {
-            public function jsonSerialize(): array
-            {
-                return ['json' => 'ok'];
-            }
-        };
-        $entry            = new LogEntry(PsrLogLevel::DEBUG, 'data', ['data' => $jsonSerializable]);
-
-        // Default behavior (skip=true) passes the object through.
-        $this->formatter->setSkipJsonSerializables(true);
-        self::assertSame($jsonSerializable, $this->formatter->format($entry)->getContext()['data']);
-
-        // Set skip=false to trigger normalization.
-        $this->formatter->setSkipJsonSerializables(false);
-        self::assertEquals([], $this->formatter->format($entry)->getContext()['data']);
-    }
-
-    /** @test */
     public function testNormalizeExceptionHandlesPreviousException(): void
     {
         $previous  = new LogicException('The root cause');
         $exception = new RuntimeException('Wrapper exception', 0, $previous);
-        $entry     = new LogEntry(PsrLogLevel::ALERT, 'error', ['exception' => $exception]);
+        $entry     = new LogEntry(PsrLogLevel::ALERT, 'A plain message', ['exception' => $exception]);
         $context   = $this->formatter->format($entry)->getContext();
         self::assertArrayHasKey('previous', $context['exception']);
         self::assertSame('LogicException', $context['exception']['previous']['class']);
     }
 
-    /**
-     * This method is called before each test.
-     */
     protected function setUp(): void
     {
         $this->formatter = new DefaultFormatter();

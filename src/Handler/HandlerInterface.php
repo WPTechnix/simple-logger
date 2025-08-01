@@ -1,0 +1,26 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WPTechnix\SimpleLogger\Handler;
+
+use WPTechnix\SimpleLogger\Exception\LoggerException;
+use WPTechnix\SimpleLogger\LogEntry;
+
+/**
+ * Interface HandlerInterface
+ *
+ * All handlers must implement this interface. It defines the core `handle`
+ * method that takes a LogEntry and processes it.
+ */
+interface HandlerInterface
+{
+    /**
+     * Handles a log entry.
+     *
+     * @param LogEntry $entry The log entry to handle.
+     *
+     * @throws LoggerException If the handler fails to handle the log entry.
+     */
+    public function handle(LogEntry $entry): void;
+}

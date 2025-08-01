@@ -1,0 +1,56 @@
+{
+  "name": "wptechnix/simple-logger",
+  "type": "library",
+  "description": "A Lightweight, extensible, PSR-3 compliant PHP logger with support for custom handlers and formatters.",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "WPTechnix",
+      "email": "developers@wptechnix.com"
+    }
+  ],
+  "minimum-stability": "stable",
+  "require": {
+    "php": ">=8.0",
+    "ext-json": "*",
+    "ext-mbstring": "*",
+    "psr/log": "^3.0"
+  },
+  "require-dev": {
+    "ext-pdo": "*",
+    "phpunit/phpunit": "^9.6",
+    "phpstan/phpstan": "^2.1",
+    "phpstan/phpstan-strict-rules": "^2.0",
+    "squizlabs/php_codesniffer": "^3",
+    "phpcompatibility/php-compatibility": "*",
+    "phpstan/phpstan-phpunit": "^2.0",
+    "szepeviktor/phpstan-wordpress": "^2.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "WPTechnix\\SimpleLogger\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "WPTechnix\\SimpleLogger\\Tests\\Unit\\": "tests/Unit/"
+    }
+  },
+  "suggest": {
+    "ext-pdo": "Required for using the PDO-based log handler."
+  },
+  "scripts": {
+    "mkdir-reports": [
+      "mkdir -p reports"
+    ],
+    "fix:phpcbf": "vendor/bin/phpcbf",
+    "lint:phpcs": "vendor/bin/phpcs --report=full",
+    "lint:phpstan": "vendor/bin/phpstan analyse --memory-limit=2G --error-format=table",
+    "lint": [
+      "@fix:phpcbf",
+      "@lint:phpcs",
+      "@lint:phpstan"
+    ],
+    "test": "XDEBUG_MODE=coverage vendor/bin/phpunit --testdox --colors=always --coverage-html=reports/coverage"
+  }
+}

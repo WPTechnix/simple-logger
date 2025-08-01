@@ -1,0 +1,19 @@
+parameters:
+    phpVersion:
+        min: 80000
+        max: 80410
+    tmpDir: /tmp/.phpstan
+    level: 8
+    paths:
+        - src/
+    excludePaths:
+    	analyseAndScan:
+    		- *tests/Unit/Fixtures/*
+    		- *tests/Mock*
+
+    treatPhpDocTypesAsCertain: false
+
+includes:
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+    - vendor/phpstan/phpstan-phpunit/extension.neon

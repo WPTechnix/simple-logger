@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        USER_ID: ${UID:-1000}
+        GROUP_ID: ${GID:-1000}
+        PHP_VERSION: ${PHP_VERSION:-8.4}
+    container_name: ${COMPOSE_PROJECT_NAME:-pkg-container}-php
+    user: "${UID:-1000}:${GID:-1000}"
+    env_file:
+      - .env
+    volumes:
+      - ../:/app
+      - ./php.ini:/usr/local/etc/php/conf.d/custom.ini
+    tty: true
+    stdin_open: true

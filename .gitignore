@@ -1,0 +1,32 @@
+# Composer
+/vendor/
+composer.lock
+
+# PHPUnit
+/phpunit.xml
+
+# PHPCS
+phpcs.xml
+
+# PHPStan
+phpstan.neon
+
+# IDE
+/.idea/
+/.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & Reports
+*.log
+*.tmp
+/reports/
+/logs/
+
+# Environment
+docker/.env
+docker/php.ini

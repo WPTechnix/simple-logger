@@ -1,0 +1,29 @@
+#!/bin/bash
+set -euo pipefail
+
+# Get staged file list
+changed_files=$(git diff --cached --name-only)
+
+# Detect PHP or config changes
+if ! echo "$changed_files" | grep -qE '\.php$|^phpstan\.neon(\.dist)?$|^phpcs\.xml(\.dist)?$'; then
+  echo "No PHP or lint config changes detected. Skipping pre-commit checks."
+  exit 0
+fi
+
+# Ensure vendor is available
+if [ ! -d "vendor" ]; then
+  echo "Vendor directory not found. Running composer install..."
+  ./bin/composer install
+fi
+
+# Run only necessary checks
+echo "Running composer fix:phpcbf..."
+./bin/composer fix:phpcbf || true
+
+echo "Running composer lint:phpcs..."
+./bin/composer lint:phpcs
+
+echo "Running composer lint:phpstan..."
+./bin/composer lint:phpstan
+
+echo "Pre-commit checks passed."

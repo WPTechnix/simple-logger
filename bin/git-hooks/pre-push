@@ -1,0 +1,26 @@
+#!/bin/bash
+set -euo pipefail
+
+# Get files to be pushed
+remote_ref=$(git for-each-ref --format='%(upstream:short)' "$(git symbolic-ref -q HEAD)")
+changed_files=$(git diff --name-only "$remote_ref...HEAD" || true)
+
+# Detect PHP or test/config changes
+if ! echo "$changed_files" | grep -qE '\.php$|^phpstan\.neon(\.dist)?$|^phpcs\.xml(\.dist)?$|^phpunit\.xml(\.dist)?$'; then
+  echo "No relevant code/config changes detected. Skipping pre-push checks."
+  exit 0
+fi
+
+# Ensure vendor is available
+if [ ! -d "vendor" ]; then
+  echo "Vendor directory not found. Running composer install..."
+  ./bin/composer install
+fi
+
+echo "Running composer setup:phpunit..."
+./bin/composer setup:phpunit
+
+echo "Running composer test..."
+./bin/composer test
+
+echo "Pre-push checks passed."

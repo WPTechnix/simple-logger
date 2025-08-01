@@ -1,0 +1,165 @@
+#!/bin/bash
+
+set -e
+
+# --- Config ---
+DEFAULT_SERVICE="app"
+DEFAULT_COMMAND="bash"
+COMPOSE_FILE="docker/docker-compose.yml"
+
+# --- State ---
+BUILD=0
+DOWN=0
+RESTART=0
+DOCKER_WORKDIR="/app"
+ALL_SERVICES=0
+SERVICE="$DEFAULT_SERVICE"
+COMMAND=()
+
+# --- Help ---
+print_help() {
+  echo "Usage: ./bin/docker [--build] [--down] [--up] [--service=name] [--] [command...]"
+  echo ""
+  echo "Options:"
+  echo "  --build            Rebuild container(s) before starting"
+  echo "  --down             Stop and remove all containers"
+  echo "  --restart          Restart container(s) without rebuilding"
+  echo "  --dir=path         Set the working directory (default: $DOCKER_WORKDIR)"
+  echo "  --up               Target all services (instead of just one)"
+  echo "  --service=name     Target specific docker-compose service (default: $DEFAULT_SERVICE)"
+  echo "  --help             Show this help message"
+  echo "  --                 Pass remaining arguments to container command"
+  echo ""
+  echo "Examples:"
+  echo "  ./bin/docker                          # sh into default container"
+  echo "  ./bin/docker php -v                   # run command"
+  echo "  ./bin/docker -- bash -c \"echo hi\"     # shell with args"
+  echo "  ./bin/docker --build --up            # rebuild and start all"
+  echo "  ./bin/docker --down                   # stop all containers"
+  exit 0
+}
+
+# --- Parse Args ---
+PARSE_ARGS=1
+for arg in "$@"; do
+  if [ "$PARSE_ARGS" = 1 ]; then
+    case "$arg" in
+      --build)
+        BUILD=1
+        ;;
+      --down)
+        DOWN=1
+        ;;
+      --up)
+        ALL_SERVICES=1
+        ;;
+      --dir=*)
+        DOCKER_WORKDIR="${arg#*=}"
+        ;;
+      --restart)
+        RESTART=1
+        ;;
+      --service=*)
+        SERVICE="${arg#*=}"
+        ;;
+      --help)
+        print_help
+        ;;
+      --)
+        PARSE_ARGS=0
+        ;;
+      *)
+        COMMAND+=("$arg")
+        ;;
+    esac
+  else
+    COMMAND+=("$arg")
+  fi
+done
+
+# --- Resolve Project Root ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+
+# --- Actions ---
+if [ "$DOWN" -eq 1 ]; then
+  echo "Stopping and removing all containers..."
+  docker compose -f "$COMPOSE_FILE" down
+  exit 0
+fi
+
+if [ "$RESTART" -eq 1 ]; then
+  if [ "$ALL_SERVICES" -eq 1 ]; then
+    echo "Restarting all services..."
+    docker compose -f "$COMPOSE_FILE" restart
+  else
+    echo "Restarting service '$SERVICE'..."
+    docker compose -f "$COMPOSE_FILE" restart "$SERVICE"
+  fi
+  exit 0
+fi
+
+if [ "$BUILD" -eq 1 ]; then
+  echo "Building ${ALL_SERVICES:+all services}${ALL_SERVICES:+" ($SERVICE)"}..."
+  docker compose -f "$COMPOSE_FILE" down
+  docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+  exit;
+fi
+
+# --- Start only inactive containers ---
+if [ "$ALL_SERVICES" -eq 1 ]; then
+  echo "Starting inactive containers..."
+  SERVICE_NAMES=$(docker compose -f "$COMPOSE_FILE" config --services)
+  for SERVICE_NAME in $SERVICE_NAMES; do
+    CONTAINER_ID=$(docker compose -f "$COMPOSE_FILE" ps -q "$SERVICE_NAME")
+    IS_RUNNING=$(docker inspect -f '{{.State.Running}}' "$CONTAINER_ID" 2>/dev/null || echo "false")
+    if [ "$IS_RUNNING" != "true" ]; then
+      echo "Starting $SERVICE_NAME..."
+      docker compose -f "$COMPOSE_FILE" up -d --no-recreate "$SERVICE_NAME"
+    else
+      echo "$SERVICE_NAME is already running. Skipping."
+    fi
+  done
+else
+  CONTAINER_ID=$(docker compose -f "$COMPOSE_FILE" ps -q "$SERVICE")
+  IS_RUNNING=$(docker inspect -f '{{.State.Running}}' "$CONTAINER_ID" 2>/dev/null || echo "false")
+  if [ "$IS_RUNNING" != "true" ]; then
+    echo "Starting service '$SERVICE'..."
+    docker compose -f "$COMPOSE_FILE" up -d --no-recreate "$SERVICE"
+  else
+    echo "Service '$SERVICE' is already running. Skipping start."
+  fi
+fi
+
+# --- Skip exec if --up was used ---
+if [ "$ALL_SERVICES" -eq 1 ]; then
+  exit 0
+fi
+
+# --- Get Container ID again (in case it was started now) ---
+CONTAINER_ID=$(docker compose -f "$COMPOSE_FILE" ps -q "$SERVICE")
+if [ -z "$CONTAINER_ID" ]; then
+  echo "Error: Container for service '$SERVICE' not found."
+  exit 1
+fi
+
+# --- Default Command ---
+if [ ${#COMMAND[@]} -eq 0 ]; then
+  COMMAND=("$DEFAULT_COMMAND")
+fi
+
+echo "Running in container ($SERVICE): ${COMMAND[*]}"
+
+INTERACTIVE=""
+
+# -it only if "sh" or "bash" is passed as command
+if [ "${COMMAND[0]}" = "sh" ] || [ "${COMMAND[0]}" = "bash" ]; then
+  INTERACTIVE="-it"
+fi
+
+if [ -n "$DOCKER_WORKDIR" ]; then
+docker exec -w "$DOCKER_WORKDIR" $INTERACTIVE "$CONTAINER_ID" "${COMMAND[@]}"
+else
+docker exec $INTERACTIVE "$CONTAINER_ID" "${COMMAND[@]}"
+fi

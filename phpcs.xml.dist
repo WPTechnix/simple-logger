@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<ruleset name="Custom Coding standards">
+    <!-- Show sniff codes in output -->
+    <arg name="parallel" value="8"/>
+    <arg name="cache" value="/tmp/.phpcs.cache"/>
+    <arg name="report-width" value="120"/>
+    <arg name="extensions" value="php"/>
+
+    <config name="installed_paths" value="vendor/phpcompatibility/php-compatibility" />
+
+    <!-- PHP version -->
+    <config name="testVersion" value="8.0-"/>
+
+    <!-- Scan these directories -->
+    <file>src</file>
+    <file>tests</file>
+
+    <!-- Exclude patterns -->
+    <exclude-pattern>*/bin/*</exclude-pattern>
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+
+    <rule ref="PSR12" />
+    <rule ref="PHPCompatibility" />
+
+    <!-- Generic Rules -->
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="120"/>
+            <property name="absoluteLineLimit" value="160"/>
+        </properties>
+    </rule>
+</ruleset>

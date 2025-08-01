@@ -7,7 +7,7 @@ use WPTechnix\SimpleLogger\LogEntry;
 /**
  * Formatter Interface.
  *
- * @template TFormatted of mixed = mixed
+ * @template TFormatted = mixed
  */
 interface FormatterInterface
 {

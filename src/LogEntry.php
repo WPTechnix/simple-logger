@@ -39,7 +39,7 @@ final class LogEntry
      * @phpstan-param PsrLogLevel::*|LogLevel $level The PSR-3 log level.
      *
      * @param string $message The log message.
-     * @param array<string, mixed> $context The context data for the log.
+     * @param array<int|string, mixed> $context The context data for the log.
      * @param DateTimeImmutable|null $date The date and time of the log event. Defaults to now (UTC).
      * @param string $channelName The channel from which the log originated.
      *
@@ -151,6 +151,23 @@ final class LogEntry
     {
         $clone              = clone $this;
         $clone->channelName = $channelName;
+
+        return $clone;
+    }
+
+    /**
+     * Returns a new instance with modified message and context.
+     *
+     * @param string $message The new message.
+     * @param array<int|string, mixed> $context The new context data.
+     *
+     * @return self A new LogEntry instance with the updated message and context.
+     */
+    public function withMessageAndContext(string $message, array $context): self
+    {
+        $clone          = clone $this;
+        $clone->message = $message;
+        $clone->context = $context;
 
         return $clone;
     }

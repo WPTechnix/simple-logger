@@ -87,5 +87,12 @@ final class LogEntryTest extends UnitTest
         self::assertNotSame($originalEntry, $newChannelEntry);
         self::assertSame('default', $originalEntry->getChannelName());
         self::assertSame('new-channel', $newChannelEntry->getChannelName());
+
+        // Act & Assert for withMessageAndContext
+        $newContext                = ['key' => 'value2'];
+        $newMessageAndContextEntry = $originalEntry->withMessageAndContext('New message2', $newContext);
+        self::assertNotSame($originalEntry, $newMessageAndContextEntry);
+        self::assertSame('New message2', $newMessageAndContextEntry->getMessage());
+        self::assertSame($newContext, $newMessageAndContextEntry->getContext());
     }
 }

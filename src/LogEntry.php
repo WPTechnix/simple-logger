@@ -42,6 +42,7 @@ final class LogEntry
      * @param array<string, mixed> $context The context data for the log.
      * @param DateTimeImmutable|null $date The date and time of the log event. Defaults to now (UTC).
      * @param string $channelName The channel from which the log originated.
+     * @param array<string, mixed> $extra Additional injected data.
      *
      * @noinspection PhpDocMissingThrowsInspection
      */
@@ -50,7 +51,8 @@ final class LogEntry
         private string $message,
         private array $context = [],
         ?DateTimeImmutable $date = null,
-        private string $channelName = 'default'
+        private string $channelName = 'default',
+        private array $extra = []
     ) {
         $this->level = is_string($level) ? new LogLevel($level) : $level;
 
@@ -111,6 +113,16 @@ final class LogEntry
     }
 
     /**
+     * Get Extra Data.
+     *
+     * @return array<string, mixed>
+     */
+    public function getExtra(): array
+    {
+        return $this->extra;
+    }
+
+    /**
      * Returns a new instance with a modified message.
      *
      * @param string $message The new message.
@@ -119,10 +131,14 @@ final class LogEntry
      */
     public function withMessage(string $message): self
     {
-        $clone          = clone $this;
-        $clone->message = $message;
-
-        return $clone;
+        return new self(
+            level: $this->level,
+            message: $message,
+            context: $this->context,
+            date: $this->date,
+            channelName: $this->channelName,
+            extra: $this->extra
+        );
     }
 
     /**
@@ -134,10 +150,14 @@ final class LogEntry
      */
     public function withContext(array $context): self
     {
-        $clone          = clone $this;
-        $clone->context = $context;
-
-        return $clone;
+        return new self(
+            level: $this->level,
+            message: $this->message,
+            context: $context,
+            date: $this->date,
+            channelName: $this->channelName,
+            extra: $this->extra
+        );
     }
 
     /**
@@ -149,10 +169,14 @@ final class LogEntry
      */
     public function withChannelName(string $channelName): self
     {
-        $clone              = clone $this;
-        $clone->channelName = $channelName;
-
-        return $clone;
+        return new self(
+            level: $this->level,
+            message: $this->message,
+            context: $this->context,
+            date: $this->date,
+            channelName: $channelName,
+            extra: $this->extra
+        );
     }
 
     /**
@@ -165,10 +189,32 @@ final class LogEntry
      */
     public function withMessageAndContext(string $message, array $context): self
     {
-        $clone          = clone $this;
-        $clone->message = $message;
-        $clone->context = $context;
+        return new self(
+            level: $this->level,
+            message: $message,
+            context: $context,
+            date: $this->date,
+            channelName: $this->channelName,
+            extra: $this->extra
+        );
+    }
 
-        return $clone;
+    /**
+     * Returns a new instance with extra data.
+     *
+     * @param array<string, mixed> $extra Additional injected data.
+     *
+     * @return self A new LogEntry instance with the updated extra data.
+     */
+    public function withExtra(array $extra): self
+    {
+        return new self(
+            level: $this->level,
+            message: $this->message,
+            context: $this->context,
+            date: $this->date,
+            channelName: $this->channelName,
+            extra: $extra
+        );
     }
 }

@@ -7,7 +7,6 @@ namespace WPTechnix\SimpleLogger\Handler;
 use Psr\Log\LogLevel as PsrLogLevel;
 use WPTechnix\SimpleLogger\LogLevel;
 use WPTechnix\SimpleLogger\Exception\InvalidArgumentException;
-use WPTechnix\SimpleLogger\Exception\LoggerException;
 use WPTechnix\SimpleLogger\Formatter\FormatterInterface;
 use WPTechnix\SimpleLogger\LogEntry;
 
@@ -52,16 +51,6 @@ abstract class AbstractHandler implements HandlerInterface
     }
 
     /**
-     * {@inheritDoc}
-     */
-    public function handle(LogEntry $entry): void
-    {
-        if ($this->shouldLog($entry)) {
-            $this->process($entry);
-        }
-    }
-
-    /**
      * Set formatter.
      *
      * @param FormatterInterface<FormattedType> $formatter The formatter to use.
@@ -88,13 +77,4 @@ abstract class AbstractHandler implements HandlerInterface
     {
         return $entry->getLevel()->isAtLeast($this->minLogLevel->getName());
     }
-
-    /**
-     * Process the log entry to the storage medium.
-     *
-     * @param LogEntry $entry The log entry to write.
-     *
-     * @throws LoggerException If an error occurs during writing.
-     */
-    abstract protected function process(LogEntry $entry): void;
 }

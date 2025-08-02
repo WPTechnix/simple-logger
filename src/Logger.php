@@ -95,15 +95,22 @@ class Logger extends AbstractLogger
         }
 
         /** @noinspection PhpUnhandledExceptionInspection */
-        $date   = new DateTimeImmutable('now', $this->timeZone);
-        $record = new LogEntry($level, (string)$message, $context, $date);
+        $date  = new DateTimeImmutable('now', $this->timeZone);
+        $entry = new LogEntry(
+            level: $level,
+            message: (string)$message,
+            context: $context,
+            date: $date,
+            channelName: $this->channelName,
+            extra: []
+        );
 
-        $record = $record->withChannelName($this->channelName);
-
-        // Pass the record to all handlers.
+        // Pass the entries to all handlers.
         foreach ($this->handlers as $handler) {
             try {
-                $handler->handle($record);
+                if ($handler->shouldHandle($entry)) {
+                    $handler->handle($entry);
+                }
             } catch (Throwable $e) {
                 $this->handleException($e, $handler);
             }

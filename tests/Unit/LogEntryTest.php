@@ -94,5 +94,10 @@ final class LogEntryTest extends UnitTest
         self::assertNotSame($originalEntry, $newMessageAndContextEntry);
         self::assertSame('New message2', $newMessageAndContextEntry->getMessage());
         self::assertSame($newContext, $newMessageAndContextEntry->getContext());
+
+        // Act & Assert for withExtra
+        $newExtraEntry = $originalEntry->withExtra(['extra' => 'data']);
+        self::assertNotSame($originalEntry, $newExtraEntry);
+        self::assertSame(['extra' => 'data'], $newExtraEntry->getExtra());
     }
 }

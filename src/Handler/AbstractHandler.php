@@ -78,6 +78,18 @@ abstract class AbstractHandler implements HandlerInterface
     }
 
     /**
+     * Checks if the given record should be processed by this handler.
+     *
+     * @param LogEntry $entry The log entry to check.
+     *
+     * @return bool True if the entry's level is high enough, false otherwise.
+     */
+    public function shouldHandle(LogEntry $entry): bool
+    {
+        return $entry->getLevel()->isAtLeast($this->minLogLevel->getName());
+    }
+
+    /**
      * Process the log entry to the storage medium.
      *
      * @param LogEntry $entry The log entry to write.
@@ -85,16 +97,4 @@ abstract class AbstractHandler implements HandlerInterface
      * @throws LoggerException If an error occurs during writing.
      */
     abstract protected function process(LogEntry $entry): void;
-
-    /**
-     * Checks if the given record should be processed by this handler.
-     *
-     * @param LogEntry $entry The log entry to check.
-     *
-     * @return bool True if the entry's level is high enough, false otherwise.
-     */
-    protected function shouldLog(LogEntry $entry): bool
-    {
-        return $entry->getLevel()->isAtLeast($this->minLogLevel->getName());
-    }
 }

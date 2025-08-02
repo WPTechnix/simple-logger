@@ -23,4 +23,13 @@ interface HandlerInterface
      * @throws LoggerException If the handler fails to handle the log entry.
      */
     public function handle(LogEntry $entry): void;
+
+    /**
+     * Determines if the handler should handle the given log entry.
+     *
+     * @param LogEntry $entry The log entry to check.
+     *
+     * @return bool True if the entry should be handled, false otherwise.
+     */
+    public function shouldHandle(LogEntry $entry): bool;
 }

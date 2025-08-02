@@ -25,6 +25,15 @@ use WPTechnix\SimpleLogger\LogEntry;
 abstract class AbstractHandler implements HandlerInterface
 {
     /**
+     * Stack of injectors to be applied to each log entry before it is handled.
+     *
+     * Each injector modifies the log entry by injecting contextual data into its "extra" field.
+     *
+     * @var list<(callable(LogEntry): LogEntry)>
+     */
+    protected array $injectors = [];
+
+    /**
      * The minimum log level that this handler will process.
      *
      * @phpstan-var LogLevel
@@ -76,5 +85,23 @@ abstract class AbstractHandler implements HandlerInterface
     public function shouldHandle(LogEntry $entry): bool
     {
         return $entry->getLevel()->isAtLeast($this->minLogLevel->getName());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getInjectors(): array
+    {
+        return $this->injectors;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function addInjector(callable $injector): static
+    {
+        $this->injectors[] = $injector;
+
+        return $this;
     }
 }

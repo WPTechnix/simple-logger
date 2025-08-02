@@ -37,6 +37,15 @@ class Logger extends AbstractLogger
     private array $handlers;
 
     /**
+     * Stack of injectors to be applied to each log entry before it is handled.
+     *
+     * Each injector modifies the log entry by injecting contextual data into its "extra" field.
+     *
+     * @var list<(callable(LogEntry): LogEntry)>
+     */
+    private array $injectors;
+
+    /**
      * The timezone for all log entries created by this logger instance.
      *
      * @var DateTimeZone
@@ -50,14 +59,22 @@ class Logger extends AbstractLogger
      * @param HandlerInterface|array<HandlerInterface> $handlers A single handler or an array of
      *                                                           handlers to process logs.
      *
-     * @throws InvalidArgumentException If no handlers are provided or if an invalid handler is given.
+     * @phpstan-param (callable(LogEntry): LogEntry)|list<(callable(LogEntry): LogEntry)> $injectors A single
+     *                                                   injector or an array of injectors to process logs.
+     *
+     * @throws InvalidArgumentException If no handlers are provided or if
+     *                                  an invalid handler or injector is given.
      */
     public function __construct(
         private string $channelName,
-        array|HandlerInterface $handlers
+        array|HandlerInterface $handlers,
+        array|callable $injectors = []
     ) {
         if (! is_array($handlers)) {
             $handlers = [$handlers];
+        }
+        if (! is_array($injectors)) {
+            $injectors = [$injectors];
         }
 
         if (0 === count($handlers)) {
@@ -75,6 +92,15 @@ class Logger extends AbstractLogger
             }
         }
         $this->handlers = $handlers;
+
+        foreach ($injectors as $injector) {
+            if (! is_callable($injector)) {
+                throw new InvalidArgumentException('Invalid Injector provided. Injector must be a callable.');
+            }
+        }
+
+        /** @phpstan-var list<(callable(LogEntry): LogEntry)> $injectors */
+        $this->injectors = $injectors;
 
         // Default to UTC for consistency. Can be overridden with setTimeZone().
         $this->timeZone = new DateTimeZone('UTC');
@@ -105,8 +131,30 @@ class Logger extends AbstractLogger
             extra: []
         );
 
+        foreach ($this->injectors as $injector) {
+            try {
+                $injected = $injector($entry);
+                if ($injected instanceof LogEntry) {
+                    $entry = $injected;
+                }
+            } catch (Throwable $e) {
+                $this->handleException($e);
+            }
+        }
+
         // Pass the entries to all handlers.
         foreach ($this->handlers as $handler) {
+            foreach ($handler->getInjectors() as $injector) {
+                try {
+                    $injected = $injector($entry);
+                    if ($injected instanceof LogEntry) {
+                        $entry = $injected;
+                    }
+                } catch (Throwable $e) {
+                    $this->handleException($e);
+                }
+            }
+
             try {
                 if ($handler->shouldHandle($entry)) {
                     $handler->handle($entry);
@@ -131,7 +179,7 @@ class Logger extends AbstractLogger
     }
 
     /**
-     * Sets the timezone for future log entries created by this logger.
+     * Sets the timezone for log entries created by this logger.
      *
      * @param DateTimeZone|string $timezone A DateTimeZone object or a valid timezone string.
      *
@@ -146,9 +194,9 @@ class Logger extends AbstractLogger
      * Invokes the custom exception handler if it is set.
      *
      * @param Throwable $e The exception that was caught.
-     * @param HandlerInterface $handler The handler that threw the exception.
+     * @param null|HandlerInterface $handler The handler if exception was caught in a handler.
      */
-    private function handleException(Throwable $e, HandlerInterface $handler): void
+    private function handleException(Throwable $e, ?HandlerInterface $handler = null): void
     {
         if (isset($this->exceptionHandler)) {
             ($this->exceptionHandler)($e, $handler);

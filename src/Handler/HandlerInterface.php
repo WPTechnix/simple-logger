@@ -32,4 +32,21 @@ interface HandlerInterface
      * @return bool True if the entry should be handled, false otherwise.
      */
     public function shouldHandle(LogEntry $entry): bool;
+
+    /**
+     * Returns a list of injectors that will be applied to each log
+     * entry before it is handled.
+     *
+     * @return list<(callable(LogEntry): LogEntry)>
+     */
+    public function getInjectors(): array;
+
+    /**
+     * Adds an injector to the handler.
+     *
+     * @param (callable(LogEntry): LogEntry) $injector The injector to add.
+     *
+     * @return static
+     */
+    public function addInjector(callable $injector): static;
 }
